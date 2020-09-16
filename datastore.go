@@ -86,7 +86,7 @@ func (d *Datastore) GetSize(key ds.Key) (size int, _ error) {
 
 func (d *Datastore) Query(q query.Query) (query.Results, error) {
 	var (
-		prefix      = q.Prefix
+		prefix      = ds.NewKey(q.Prefix).String()
 		limit       = q.Limit
 		offset      = q.Offset
 		orders      = q.Orders
@@ -96,13 +96,36 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 		returnSizes = q.ReturnsSizes
 	)
 
+	if prefix != "/" {
+		prefix = prefix + "/"
+	}
+
 	opts := &pebble.IterOptions{
 		LowerBound: []byte(prefix),
-		UpperBound: []byte(prefix),
+		UpperBound: func() []byte {
+			// if the prefix is 0x01..., we want 0x02 as an upper bound.
+			// if the prefix is 0x0000ff..., we want 0x0001 as an upper bound.
+			// if the prefix is 0x0000ff01..., we want 0x0000ff02 as an upper bound.
+			// if the prefix is 0xffffff..., we don't want an upper bound.
+			// if the prefix is 0xff..., we don't want an upper bound.
+			// if the prefix is empty, we don't want an upper bound.
+			// basically, we want to find the last byte that can be lexicographically incremented.
+			var upper []byte
+			for i := len(prefix) - 1; i >= 0; i-- {
+				b := prefix[i]
+				if b == 0xff {
+					continue
+				}
+				upper = make([]byte, i+1)
+				copy(upper, prefix)
+				upper[i] = b + 1
+				break
+			}
+			return upper
+		}(),
 	}
 
 	iter := d.db.NewIter(opts)
-	defer iter.Close()
 
 	var move func() bool
 	switch l := len(orders); l {
@@ -118,13 +141,24 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			iter.Last()
 			move = iter.Prev
 		default:
-			return nil, fmt.Errorf("unsupported order criterium of type: %T", o)
+			return d.inefficientOrderQuery(q, nil)
 		}
 	default:
-		return nil, fmt.Errorf("pebble query supports at most 1 order criterium; provided: %d", l)
+		var baseOrder query.Order
+		for _, o := range orders {
+			if baseOrder != nil {
+				return nil, fmt.Errorf("incompatible orders passed: %+v", orders)
+			}
+			switch o.(type) {
+			case query.OrderByKey, query.OrderByKeyDescending, *query.OrderByKey, *query.OrderByKeyDescending:
+				baseOrder = o
+			}
+		}
+		return d.inefficientOrderQuery(q, baseOrder)
 	}
 
-	if iter.Valid() {
+	if !iter.Valid() {
+		_ = iter.Close()
 		// there are no valid results.
 		return query.ResultsWithEntries(q, []query.Entry{}), nil
 	}
@@ -144,9 +178,14 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 	}
 
 	createEntry := func() query.Entry {
+		// iter.Key and iter.Value may change on the next call to iter.Next.
+		// string conversion takes a copy
 		entry := query.Entry{Key: string(iter.Key())}
 		if !keysOnly {
-			entry.Value = iter.Value()
+			// take a copy.
+			cpy := make([]byte, len(iter.Value()))
+			copy(cpy, iter.Value())
+			entry.Value = cpy
 		}
 		if returnSizes {
 			entry.Size = len(iter.Value())
@@ -157,6 +196,8 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 	d.wg.Add(1)
 	results := query.ResultsWithProcess(q, func(proc goprocess.Process, outCh chan<- query.Result) {
 		defer d.wg.Done()
+		defer iter.Close()
+
 		defer func() {
 			switch r := recover(); r {
 			case nil, "interrupted":
@@ -217,7 +258,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 }
 
 func (d *Datastore) Put(key ds.Key, value []byte) error {
-	err := d.db.Set(key.Bytes(), value, nil)
+	err := d.db.Set(key.Bytes(), value, pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during set: %w", err)
 	}
@@ -225,7 +266,7 @@ func (d *Datastore) Put(key ds.Key, value []byte) error {
 }
 
 func (d *Datastore) Delete(key ds.Key) error {
-	err := d.db.Delete(key.Bytes(), nil)
+	err := d.db.Delete(key.Bytes(), pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete: %w", err)
 	}
@@ -239,7 +280,7 @@ func (d *Datastore) Sync(_ ds.Key) error {
 	// crash. In pebble this is done by fsyncing the WAL, which can be requested when
 	// performing write operations. But there is no separate operation to fsync
 	// only. The closest is LogData, which actually writes a log entry on the WAL.
-	err := d.db.LogData(nil, &pebble.WriteOptions{Sync: true})
+	err := d.db.LogData(nil, pebble.Sync)
 	if err != nil {
 		return fmt.Errorf("pebble error during sync: %w", err)
 	}
@@ -261,6 +302,38 @@ func (d *Datastore) Close() error {
 	return d.db.Close()
 }
 
+func (d *Datastore) inefficientOrderQuery(q query.Query, baseOrder query.Order) (query.Results, error) {
+	// Ok, we have a weird order we can't handle. Let's
+	// perform the _base_ query (prefix, filter, etc.), then
+	// handle sort/offset/limit later.
+
+	// Skip the stuff we can't apply.
+	baseQuery := q
+	baseQuery.Limit = 0
+	baseQuery.Offset = 0
+	baseQuery.Orders = nil
+	if baseOrder != nil {
+		baseQuery.Orders = []query.Order{baseOrder}
+	}
+
+	// perform the base query.
+	res, err := d.Query(baseQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	// fix the query
+	res = query.ResultsReplaceQuery(res, q)
+
+	// Remove the parts we've already applied.
+	naiveQuery := q
+	naiveQuery.Prefix = ""
+	naiveQuery.Filters = nil
+
+	// Apply the rest of the query
+	return query.NaiveQueryApply(naiveQuery, res), nil
+}
+
 type Batch struct {
 	batch *pebble.Batch
 }
@@ -268,7 +341,7 @@ type Batch struct {
 var _ ds.Batch = (*Batch)(nil)
 
 func (b *Batch) Put(key ds.Key, value []byte) error {
-	err := b.batch.Set(key.Bytes(), value, nil)
+	err := b.batch.Set(key.Bytes(), value, pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during set within batch: %w", err)
 	}
@@ -276,7 +349,7 @@ func (b *Batch) Put(key ds.Key, value []byte) error {
 }
 
 func (b *Batch) Delete(key ds.Key) error {
-	err := b.batch.Delete(key.Bytes(), nil)
+	err := b.batch.Delete(key.Bytes(), pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete within batch: %w", err)
 	}
