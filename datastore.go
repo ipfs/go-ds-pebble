@@ -12,6 +12,20 @@ import (
 	"github.com/jbenet/goprocess"
 )
 
+// Datastore is a pebble-backed github.com/ipfs/go-datastore.Datastore.
+//
+// It supports batching. It does not support TTL or transactions, because pebble
+// doesn't have those features.
+//
+// The query capabilities are limited in this regard:
+//
+//  * query.Orders: zero or one order criteria are accepted. If provided, it
+//    must be OrderByKey or OrderByKeyDescending. Custom order functions are
+//    not supported.
+//  * query.ReturnExpirations is not supported, and is ignored.
+//
+// Get, GetSize, Has all perform an underying store Get, as pebble doesn't
+// support fetching values lazily.
 type Datastore struct {
 	db      *pebble.DB
 	status  int32
@@ -223,7 +237,7 @@ func (d *Datastore) Sync(_ ds.Key) error {
 	// pebble provides a Flush operation, but it writes the memtables to stable
 	// storage. That's not what Sync is supposed to do. Sync is supposed to
 	// guarantee that previously performed write operations will survive a machine
-	// crash. In pebble this is done by fsyncing the WAL, which can be done while
+	// crash. In pebble this is done by fsyncing the WAL, which can be requested when
 	// performing write operations. But there is no separate operation to fsync
 	// only. The closest is LogData, which actually writes a log entry on the WAL.
 	err := d.db.LogData(nil, &pebble.WriteOptions{Sync: true})
@@ -234,7 +248,7 @@ func (d *Datastore) Sync(_ ds.Key) error {
 }
 
 func (d *Datastore) Batch() (ds.Batch, error) {
-	panic("implement me")
+	return &Batch{d.db.NewBatch()}, nil
 }
 
 func (d *Datastore) Close() error {
@@ -246,4 +260,30 @@ func (d *Datastore) Close() error {
 	close(d.closing)
 	d.wg.Wait()
 	return d.db.Close()
+}
+
+type Batch struct {
+	batch *pebble.Batch
+}
+
+var _ ds.Batch = (*Batch)(nil)
+
+func (b *Batch) Put(key ds.Key, value []byte) error {
+	err := b.batch.Set(key.Bytes(), value, nil)
+	if err != nil {
+		return fmt.Errorf("pebble error during set within batch: %w", err)
+	}
+	return nil
+}
+
+func (b *Batch) Delete(key ds.Key) error {
+	err := b.batch.Delete(key.Bytes(), nil)
+	if err != nil {
+		return fmt.Errorf("pebble error during delete within batch: %w", err)
+	}
+	return nil
+}
+
+func (b *Batch) Commit() error {
+	return b.batch.Commit(nil)
 }
