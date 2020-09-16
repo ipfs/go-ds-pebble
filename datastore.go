@@ -198,9 +198,11 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 		defer d.wg.Done()
 		defer iter.Close()
 
+		const interrupted = "interrupted"
+
 		defer func() {
 			switch r := recover(); r {
-			case nil, "interrupted":
+			case nil, interrupted:
 				// nothing, or flow interrupted; all ok.
 			default:
 				panic(r) // a genuine panic, propagate.
@@ -222,7 +224,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			case outCh <- query.Result{Error: fmt.Errorf("close requested")}:
 			default:
 			}
-			panic("interrupted")
+			panic(interrupted)
 		}
 
 		// skip over 'offset' entries; if a filter is provided, only entries
