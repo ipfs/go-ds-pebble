@@ -79,7 +79,7 @@ func (d *Datastore) Has(key ds.Key) (exists bool, _ error) {
 func (d *Datastore) GetSize(key ds.Key) (size int, _ error) {
 	val, err := d.Get(key)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	return len(val), nil
 }
@@ -157,7 +157,6 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 	d.wg.Add(1)
 	results := query.ResultsWithProcess(q, func(proc goprocess.Process, outCh chan<- query.Result) {
 		defer d.wg.Done()
-		defer close(outCh)
 		defer func() {
 			switch r := recover(); r {
 			case nil, "interrupted":
