@@ -301,6 +301,7 @@ func (d *Datastore) Close() error {
 	}
 	close(d.closing)
 	d.wg.Wait()
+	_ = d.db.Flush()
 	return d.db.Close()
 }
 
