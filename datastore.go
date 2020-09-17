@@ -141,6 +141,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			iter.Last()
 			move = iter.Prev
 		default:
+			defer iter.Close()
 			return d.inefficientOrderQuery(q, nil)
 		}
 	default:
@@ -154,6 +155,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 				baseOrder = o
 			}
 		}
+		defer iter.Close()
 		return d.inefficientOrderQuery(q, baseOrder)
 	}
 
@@ -301,6 +303,7 @@ func (d *Datastore) Close() error {
 	}
 	close(d.closing)
 	d.wg.Wait()
+	_ = d.db.Flush()
 	return d.db.Close()
 }
 
