@@ -1,11 +1,24 @@
 version: 2.1
+
 orbs:
-  ci-go: ipfs/ci-go@0.2.9
+  go: circleci/go@1.3.1
+
+jobs:
+  build:
+    executor:
+      name: go/default
+      tag: '1.14'
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - go/test:
+          covermode: atomic
+          failfast: true
+          race: true
 
 workflows:
-  version: 2
-  test:
+  main:
     jobs:
-      - ci-go/build
-      - ci-go/lint
-      - ci-go/test
+      - build
