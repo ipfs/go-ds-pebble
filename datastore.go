@@ -233,7 +233,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			if err := iter.Error(); err != nil {
 				sendOrInterrupt(query.Result{Error: err})
 			}
-			if doFilter || !filterFn(createEntry()) {
+			if doFilter && !filterFn(createEntry()) {
 				// if we have a filter, and this entry doesn't match it,
 				// don't count it.
 				continue
