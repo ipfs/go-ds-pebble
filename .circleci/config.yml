@@ -16,6 +16,10 @@ jobs:
       - go/test:
           covermode: atomic
           failfast: true
+          race: false
+      - go/test:
+          covermode: atomic
+          failfast: true
           race: true
 
 workflows:
