@@ -9,13 +9,10 @@ import (
 )
 
 func TestPebbleDatastore(t *testing.T) {
-	ds, cleanup := newDatastore(t)
-	defer cleanup()
-
-	dstest.SubtestAll(t, ds)
+	dstest.SubtestAll(t, newDatastore(t))
 }
 
-func newDatastore(t *testing.T) (*Datastore, func()) {
+func newDatastore(t *testing.T) *Datastore {
 	t.Helper()
 
 	path, err := ioutil.TempDir(os.TempDir(), "testing_pebble_")
@@ -28,8 +25,10 @@ func newDatastore(t *testing.T) (*Datastore, func()) {
 		t.Fatal(err)
 	}
 
-	return d, func() {
+	t.Cleanup(func() {
 		_ = d.Close()
 		_ = os.RemoveAll(path)
-	}
+	})
+
+	return d
 }
