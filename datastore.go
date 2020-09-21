@@ -19,9 +19,6 @@ import (
 //
 // The query capabilities are limited in this regard:
 //
-//  * query.Orders: zero or one order criteria are accepted. If provided, it
-//    must be OrderByKey or OrderByKeyDescending. Custom order functions are
-//    not supported.
 //  * query.ReturnExpirations is not supported, and is ignored.
 //
 // Get, GetSize, Has all perform an underying store Get, as pebble doesn't
