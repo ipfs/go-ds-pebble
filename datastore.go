@@ -44,7 +44,8 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 // get performs a get on the database, copying the value to a new slice and
 // returning it if retval is true. If retval is false, no copy will be
 // performed, and the returned value will always be nil, whether or not the key
-// exists. If the key doesn't exist, ds.ErrNotFound will be returned.
+// exists. If the key doesn't exist, ds.ErrNotFound will be returned. When no
+// error occurs, the size of the value is also returned.
 func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
 	val, closer, err := d.db.Get(key)
 	switch err {
