@@ -16,16 +16,6 @@ import (
 //
 // It supports batching. It does not support TTL or transactions, because pebble
 // doesn't have those features.
-//
-// The query capabilities are limited in this regard:
-//
-//  * query.Orders: zero or one order criteria are accepted. If provided, it
-//    must be OrderByKey or OrderByKeyDescending. Custom order functions are
-//    not supported.
-//  * query.ReturnExpirations is not supported, and is ignored.
-//
-// Get, GetSize, Has all perform an underying store Get, as pebble doesn't
-// support fetching values lazily.
 type Datastore struct {
 	db      *pebble.DB
 	status  int32
@@ -51,21 +41,39 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 	return store, nil
 }
 
-func (d *Datastore) Get(key ds.Key) (value []byte, err error) {
-	val, closer, err := d.db.Get(key.Bytes())
+// get performs a get on the database, copying the value to a new slice and
+// returning it if retval is true. If retval is false, no copy will be
+// performed, and the returned value will always be nil, whether or not the key
+// exists. If the key doesn't exist, ds.ErrNotFound will be returned. When no
+// error occurs, the size of the value is also returned.
+func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
+	val, closer, err := d.db.Get(key)
 	switch err {
-	case pebble.ErrNotFound:
-		return nil, ds.ErrNotFound
 	case nil:
-		_ = closer.Close()
-		return val, nil
+		// do nothing
+	case pebble.ErrNotFound:
+		return nil, 0, ds.ErrNotFound
 	default:
-		return nil, fmt.Errorf("pebble error during get: %w", err)
+		return nil, -1, fmt.Errorf("pebble error during get: %w", err)
 	}
+
+	var cpy []byte
+	if retval {
+		cpy = make([]byte, len(val))
+		copy(cpy, val)
+	}
+	size := len(val)
+	_ = closer.Close()
+	return cpy, size, nil
+}
+
+func (d *Datastore) Get(key ds.Key) (value []byte, err error) {
+	val, _, err := d.get(key.Bytes(), true)
+	return val, err
 }
 
 func (d *Datastore) Has(key ds.Key) (exists bool, _ error) {
-	_, err := d.Get(key)
+	_, _, err := d.get(key.Bytes(), false)
 	switch err {
 	case ds.ErrNotFound:
 		return false, nil
@@ -77,11 +85,11 @@ func (d *Datastore) Has(key ds.Key) (exists bool, _ error) {
 }
 
 func (d *Datastore) GetSize(key ds.Key) (size int, _ error) {
-	val, err := d.Get(key)
+	_, size, err := d.get(key.Bytes(), false)
 	if err != nil {
 		return -1, err
 	}
-	return len(val), nil
+	return size, nil
 }
 
 func (d *Datastore) Query(q query.Query) (query.Results, error) {
