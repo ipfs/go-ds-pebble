@@ -1,4 +1,4 @@
-module github.com/ipfs/go-pebble-ds
+module github.com/ipfs/go-ds-pebble
 
 go 1.14
 

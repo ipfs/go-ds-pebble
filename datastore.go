@@ -370,5 +370,5 @@ func (b *Batch) Delete(key ds.Key) error {
 }
 
 func (b *Batch) Commit() error {
-	return b.batch.Commit(nil)
+	return b.batch.Commit(pebble.NoSync)
 }
