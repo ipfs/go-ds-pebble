@@ -1,6 +1,6 @@
 module github.com/ipfs/go-ds-pebble
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cockroachdb/pebble v0.0.0-20211118143830-31f197d58441

@@ -1,7 +1,6 @@
 package pebbleds
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -18,7 +17,7 @@ func TestPebbleDatastore(t *testing.T) {
 func newDatastore(t *testing.T) (*Datastore, func()) {
 	t.Helper()
 
-	path, err := ioutil.TempDir(os.TempDir(), "testing_pebble_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_pebble_")
 	if err != nil {
 		t.Fatal(err)
 	}
