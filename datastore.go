@@ -1,6 +1,7 @@
 package pebbleds
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -67,12 +68,12 @@ func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
 	return cpy, size, nil
 }
 
-func (d *Datastore) Get(key ds.Key) (value []byte, err error) {
+func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
 	val, _, err := d.get(key.Bytes(), true)
 	return val, err
 }
 
-func (d *Datastore) Has(key ds.Key) (exists bool, _ error) {
+func (d *Datastore) Has(ctx context.Context, key ds.Key) (exists bool, _ error) {
 	_, _, err := d.get(key.Bytes(), false)
 	switch err {
 	case ds.ErrNotFound:
@@ -84,7 +85,7 @@ func (d *Datastore) Has(key ds.Key) (exists bool, _ error) {
 	}
 }
 
-func (d *Datastore) GetSize(key ds.Key) (size int, _ error) {
+func (d *Datastore) GetSize(ctx context.Context, key ds.Key) (size int, _ error) {
 	_, size, err := d.get(key.Bytes(), false)
 	if err != nil {
 		return -1, err
@@ -92,7 +93,7 @@ func (d *Datastore) GetSize(key ds.Key) (size int, _ error) {
 	return size, nil
 }
 
-func (d *Datastore) Query(q query.Query) (query.Results, error) {
+func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, error) {
 	var (
 		prefix      = ds.NewKey(q.Prefix).String()
 		limit       = q.Limit
@@ -150,7 +151,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			move = iter.Prev
 		default:
 			defer iter.Close()
-			return d.inefficientOrderQuery(q, nil)
+			return d.inefficientOrderQuery(ctx, q, nil)
 		}
 	default:
 		var baseOrder query.Order
@@ -164,7 +165,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 			}
 		}
 		defer iter.Close()
-		return d.inefficientOrderQuery(q, baseOrder)
+		return d.inefficientOrderQuery(ctx, q, baseOrder)
 	}
 
 	if !iter.Valid() {
@@ -269,7 +270,7 @@ func (d *Datastore) Query(q query.Query) (query.Results, error) {
 	return results, nil
 }
 
-func (d *Datastore) Put(key ds.Key, value []byte) error {
+func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 	err := d.db.Set(key.Bytes(), value, pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during set: %w", err)
@@ -277,7 +278,7 @@ func (d *Datastore) Put(key ds.Key, value []byte) error {
 	return nil
 }
 
-func (d *Datastore) Delete(key ds.Key) error {
+func (d *Datastore) Delete(ctx context.Context, key ds.Key) error {
 	err := d.db.Delete(key.Bytes(), pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete: %w", err)
@@ -285,7 +286,7 @@ func (d *Datastore) Delete(key ds.Key) error {
 	return nil
 }
 
-func (d *Datastore) Sync(_ ds.Key) error {
+func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 	// pebble provides a Flush operation, but it writes the memtables to stable
 	// storage. That's not what Sync is supposed to do. Sync is supposed to
 	// guarantee that previously performed write operations will survive a machine
@@ -299,7 +300,7 @@ func (d *Datastore) Sync(_ ds.Key) error {
 	return nil
 }
 
-func (d *Datastore) Batch() (ds.Batch, error) {
+func (d *Datastore) Batch(ctx context.Context) (ds.Batch, error) {
 	return &Batch{d.db.NewBatch()}, nil
 }
 
@@ -315,7 +316,7 @@ func (d *Datastore) Close() error {
 	return d.db.Close()
 }
 
-func (d *Datastore) inefficientOrderQuery(q query.Query, baseOrder query.Order) (query.Results, error) {
+func (d *Datastore) inefficientOrderQuery(ctx context.Context, q query.Query, baseOrder query.Order) (query.Results, error) {
 	// Ok, we have a weird order we can't handle. Let's
 	// perform the _base_ query (prefix, filter, etc.), then
 	// handle sort/offset/limit later.
@@ -330,7 +331,7 @@ func (d *Datastore) inefficientOrderQuery(q query.Query, baseOrder query.Order) 
 	}
 
 	// perform the base query.
-	res, err := d.Query(baseQuery)
+	res, err := d.Query(ctx, baseQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +354,7 @@ type Batch struct {
 
 var _ ds.Batch = (*Batch)(nil)
 
-func (b *Batch) Put(key ds.Key, value []byte) error {
+func (b *Batch) Put(ctx context.Context, key ds.Key, value []byte) error {
 	err := b.batch.Set(key.Bytes(), value, pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during set within batch: %w", err)
@@ -361,7 +362,7 @@ func (b *Batch) Put(key ds.Key, value []byte) error {
 	return nil
 }
 
-func (b *Batch) Delete(key ds.Key) error {
+func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
 	err := b.batch.Delete(key.Bytes(), pebble.NoSync)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete within batch: %w", err)
@@ -369,6 +370,6 @@ func (b *Batch) Delete(key ds.Key) error {
 	return nil
 }
 
-func (b *Batch) Commit() error {
+func (b *Batch) Commit(ctx context.Context) error {
 	return b.batch.Commit(pebble.NoSync)
 }
