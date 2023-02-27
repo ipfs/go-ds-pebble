@@ -3,7 +3,7 @@ module github.com/ipfs/go-ds-pebble
 go 1.19
 
 require (
-	github.com/cockroachdb/pebble v0.0.0-20221122204154-936e011bb911
+	github.com/cockroachdb/pebble v0.0.0-20230227185959-8285e8dd5c08
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/jbenet/goprocess v0.1.4
 )
@@ -11,7 +11,7 @@ require (
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/errors v1.8.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect
@@ -21,7 +21,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/ipfs/go-detect-race v0.0.1 // indirect
-	github.com/klauspost/compress v1.11.13 // indirect
+	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -31,6 +31,6 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	golang.org/x/exp v0.0.0-20200513190911-00229845015e // indirect
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/sys v0.3.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
