@@ -278,6 +278,13 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 	return nil
 }
 
+// DiskUsage implements the PersistentDatastore interface and returns current
+// size on disk.
+func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
+	m := d.db.Metrics()
+	return m.DiskSpaceUsage(), nil
+}
+
 func (d *Datastore) Delete(ctx context.Context, key ds.Key) error {
 	err := d.db.Delete(key.Bytes(), pebble.NoSync)
 	if err != nil {
