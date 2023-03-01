@@ -7,11 +7,13 @@ import (
 	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
-
 	ds "github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
+	log "github.com/ipfs/go-log/v2"
 	"github.com/jbenet/goprocess"
 )
+
+var logger = log.Logger("pebble")
 
 // Datastore is a pebble-backed github.com/ipfs/go-datastore.Datastore.
 //
@@ -29,6 +31,11 @@ var _ ds.Batching = (*Datastore)(nil)
 
 // NewDatastore creates a pebble-backed datastore.
 func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
+	if opts == nil {
+		opts = &pebble.Options{}
+		opts.EnsureDefaults()
+	}
+	opts.Logger = logger
 	db, err := pebble.Open(path, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pebble database: %w", err)
@@ -282,6 +289,8 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 // size on disk.
 func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
 	m := d.db.Metrics()
+	// since we requested metrics, print them up on debug
+	logger.Debug(m)
 	return m.DiskSpaceUsage(), nil
 }
 
