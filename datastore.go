@@ -29,6 +29,10 @@ type Datastore struct {
 var _ ds.Datastore = (*Datastore)(nil)
 var _ ds.Batching = (*Datastore)(nil)
 
+var defaultSplit = func(a []byte) int {
+	return len(a)
+}
+
 // NewDatastore creates a pebble-backed datastore.
 func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 	if opts == nil {
@@ -36,6 +40,15 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 		opts.EnsureDefaults()
 	}
 	opts.Logger = logger
+	// We force a default Split function that enables using bloom filters
+	// on lookups. Normally, our datastore keys are not versioned and
+	// correspond to unique items (cids) rather than MVCC keys.  On the
+	// other side, we expect a decent number of Has() and Get() calls with
+	// negative results, and those are currently very expensive and
+	// trigger a fair amount of reads. See
+	// https://github.com/cockroachdb/pebble/issues/2369#issuecomment-1450997680
+	opts.Comparer.Split = defaultSplit
+
 	db, err := pebble.Open(path, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pebble database: %w", err)
@@ -55,24 +68,23 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 // exists. If the key doesn't exist, ds.ErrNotFound will be returned. When no
 // error occurs, the size of the value is also returned.
 func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
-	val, closer, err := d.db.Get(key)
-	switch err {
-	case nil:
-		// do nothing
-	case pebble.ErrNotFound:
+	// We do not use db.Get because it bypasses bloom filters, resulting
+	// in more reads that needed, particularly for non existing keys.
+	// https://github.com/cockroachdb/pebble/issues/197
+	iter := d.db.NewIter(nil)
+	defer iter.Close()
+	ok := iter.SeekPrefixGE(key)
+	if !ok {
 		return nil, 0, ds.ErrNotFound
-	default:
-		return nil, -1, fmt.Errorf("pebble error during get: %w", err)
 	}
 
-	var cpy []byte
-	if retval {
-		cpy = make([]byte, len(val))
-		copy(cpy, val)
+	if !retval {
+		return nil, len(iter.Value()), nil
 	}
-	size := len(val)
-	_ = closer.Close()
-	return cpy, size, nil
+	val := iter.Value()
+	cpy := make([]byte, len(val))
+	copy(cpy, val)
+	return cpy, len(val), nil
 }
 
 func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
