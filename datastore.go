@@ -290,7 +290,7 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
 	m := d.db.Metrics()
 	// since we requested metrics, print them up on debug
-	logger.Debug(m)
+	logger.Debugf("\n\n%s\n\n", m)
 	return m.DiskSpaceUsage(), nil
 }
 
