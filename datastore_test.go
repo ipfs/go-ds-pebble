@@ -1,9 +1,12 @@
 package pebbleds
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"testing"
 
+	"github.com/ipfs/go-datastore"
 	dstest "github.com/ipfs/go-datastore/test"
 )
 
@@ -30,5 +33,44 @@ func newDatastore(t *testing.T) (*Datastore, func()) {
 	return d, func() {
 		_ = d.Close()
 		_ = os.RemoveAll(path)
+	}
+}
+
+func TestGet(t *testing.T) {
+	ds, cleanup := newDatastore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	k := datastore.NewKey("a")
+	v := []byte("val")
+	err := ds.Put(ctx, k, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ds.Put(ctx, datastore.NewKey("aa"), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ds.Put(ctx, datastore.NewKey("ac"), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	has, err := ds.Has(ctx, datastore.NewKey("ab"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
+		t.Fatal("should not have key")
+	}
+
+	val, err := ds.Get(ctx, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(v, val) {
+		t.Error("not equal", string(val))
 	}
 }
