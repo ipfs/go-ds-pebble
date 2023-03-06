@@ -47,6 +47,9 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 	// negative results, and those are currently very expensive and
 	// trigger a fair amount of reads. See
 	// https://github.com/cockroachdb/pebble/issues/2369#issuecomment-1450997680
+	if opts.Comparer.Split != nil {
+		logger.Warn("Comparer Split's function is not nil. To ensure that go-ds-pebble behaves correctly, it will be overwritten. See https://github.com/ipfs/go-ds-pebble/pull/26")
+	}
 	opts.Comparer.Split = defaultSplit
 
 	db, err := pebble.Open(path, opts)
