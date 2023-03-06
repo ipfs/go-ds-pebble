@@ -34,6 +34,14 @@ var defaultSplit = func(a []byte) int {
 }
 
 // NewDatastore creates a pebble-backed datastore.
+//
+// Users can provide pebble options or rely on Pebble's defaults.  There is
+// one exception though: opts.Comparer.Split is always overwriten, so that
+// lookups can take advantage of bloom filters. This assumes a regular
+// datastore usage where advanced key-versioning and performance features that
+// Pebbles are offers are unused, but instead we care more about responding
+// quickly to Has() and Get() lookups, particularly when keys are not in the
+// datastore.
 func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 	if opts == nil {
 		opts = &pebble.Options{}
@@ -90,11 +98,17 @@ func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
 	return cpy, len(val), nil
 }
 
+// Get reads a key from the datastore.
 func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
 	val, _, err := d.get(key.Bytes(), true)
 	return val, err
 }
 
+// Has can be used to check whether a key is stored in the datastore. Has()
+// calls are not cheaper than Get() though. In Pebble, lookups for existing
+// keys will also read the values. Avoid using Has() if you later expect to
+// read the key anyways. Has() calls for non-existing keys should take
+// advantage of bloom filters and avoid reads.
 func (d *Datastore) Has(ctx context.Context, key ds.Key) (exists bool, _ error) {
 	_, _, err := d.get(key.Bytes(), false)
 	switch err {
