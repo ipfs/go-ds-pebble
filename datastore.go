@@ -24,6 +24,8 @@ type Datastore struct {
 	status  int32
 	closing chan struct{}
 	wg      sync.WaitGroup
+
+	opts *pebble.Options
 }
 
 var _ ds.Datastore = (*Datastore)(nil)
@@ -67,6 +69,7 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 
 	store := &Datastore{
 		db:      db,
+		opts:    opts,
 		closing: make(chan struct{}),
 	}
 
@@ -338,6 +341,9 @@ func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 	// crash. In pebble this is done by fsyncing the WAL, which can be requested when
 	// performing write operations. But there is no separate operation to fsync
 	// only. The closest is LogData, which actually writes a log entry on the WAL.
+	if d.opts.DisableWAL { // otherwise this errors
+		return nil
+	}
 	err := d.db.LogData(nil, pebble.Sync)
 	if err != nil {
 		return fmt.Errorf("pebble error during sync: %w", err)
