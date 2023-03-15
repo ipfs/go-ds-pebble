@@ -31,36 +31,14 @@ type Datastore struct {
 var _ ds.Datastore = (*Datastore)(nil)
 var _ ds.Batching = (*Datastore)(nil)
 
-var defaultSplit = func(a []byte) int {
-	return len(a)
-}
-
 // NewDatastore creates a pebble-backed datastore.
-//
-// Users can provide pebble options or rely on Pebble's defaults.  There is
-// one exception though: opts.Comparer.Split is always overwriten, so that
-// lookups can take advantage of bloom filters. This assumes a regular
-// datastore usage where advanced key-versioning and performance features that
-// Pebbles are offers are unused, but instead we care more about responding
-// quickly to Has() and Get() lookups, particularly when keys are not in the
-// datastore.
+// Users can provide pebble options or rely on Pebble's defaults.
 func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 	if opts == nil {
 		opts = &pebble.Options{}
 		opts.EnsureDefaults()
 	}
 	opts.Logger = logger
-	// We force a default Split function that enables using bloom filters
-	// on lookups. Normally, our datastore keys are not versioned and
-	// correspond to unique items (cids) rather than MVCC keys.  On the
-	// other side, we expect a decent number of Has() and Get() calls with
-	// negative results, and those are currently very expensive and
-	// trigger a fair amount of reads. See
-	// https://github.com/cockroachdb/pebble/issues/2369#issuecomment-1450997680
-	if opts.Comparer.Split != nil {
-		logger.Warn("Comparer Split's function is not nil. To ensure that go-ds-pebble behaves correctly, it will be overwritten. See https://github.com/ipfs/go-ds-pebble/pull/26")
-	}
-	opts.Comparer.Split = defaultSplit
 
 	db, err := pebble.Open(path, opts)
 	if err != nil {
@@ -82,23 +60,24 @@ func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
 // exists. If the key doesn't exist, ds.ErrNotFound will be returned. When no
 // error occurs, the size of the value is also returned.
 func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
-	// We do not use db.Get because it bypasses bloom filters, resulting
-	// in more reads that needed, particularly for non existing keys.
-	// https://github.com/cockroachdb/pebble/issues/197
-	iter := d.db.NewIter(nil)
-	defer iter.Close()
-	ok := iter.SeekPrefixGE(key)
-	if !ok {
+	val, closer, err := d.db.Get(key)
+	switch err {
+	case nil:
+		// do nothing
+	case pebble.ErrNotFound:
 		return nil, 0, ds.ErrNotFound
+	default:
+		return nil, -1, fmt.Errorf("pebble error during get: %w", err)
 	}
 
-	if !retval {
-		return nil, len(iter.Value()), nil
+	var cpy []byte
+	if retval {
+		cpy = make([]byte, len(val))
+		copy(cpy, val)
 	}
-	val := iter.Value()
-	cpy := make([]byte, len(val))
-	copy(cpy, val)
-	return cpy, len(val), nil
+	size := len(val)
+	_ = closer.Close()
+	return cpy, size, nil
 }
 
 // Get reads a key from the datastore.
@@ -110,8 +89,7 @@ func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err erro
 // Has can be used to check whether a key is stored in the datastore. Has()
 // calls are not cheaper than Get() though. In Pebble, lookups for existing
 // keys will also read the values. Avoid using Has() if you later expect to
-// read the key anyways. Has() calls for non-existing keys should take
-// advantage of bloom filters and avoid reads.
+// read the key anyways.
 func (d *Datastore) Has(ctx context.Context, key ds.Key) (exists bool, _ error) {
 	_, _, err := d.get(key.Bytes(), false)
 	switch err {
