@@ -2,8 +2,6 @@ module github.com/ipfs/go-ds-pebble
 
 go 1.21
 
-toolchain go1.21.3
-
 require (
 	github.com/cockroachdb/pebble v0.0.0-20231122205016-4cbc644681f2
 	github.com/ipfs/go-datastore v0.6.0
