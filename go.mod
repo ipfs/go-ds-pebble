@@ -3,7 +3,7 @@ module github.com/ipfs/go-ds-pebble
 go 1.21
 
 require (
-	github.com/cockroachdb/pebble v0.0.0-20231122205016-4cbc644681f2
+	github.com/cockroachdb/pebble v0.0.0-20240109173520-f93e739e51c8
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/jbenet/goprocess v0.1.4
