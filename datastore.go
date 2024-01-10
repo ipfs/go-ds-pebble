@@ -151,10 +151,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 		}(),
 	}
 
-	iter, err := d.db.NewIter(opts)
-	if err != nil {
-		return nil, err
-	}
+	iter := d.db.NewIter(opts)
 
 	var move func() bool
 	switch l := len(orders); l {

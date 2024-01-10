@@ -2,6 +2,8 @@ module github.com/ipfs/go-ds-pebble
 
 // Uses incompatible format of pebble (pre-v2)
 retract v0.2.6
+// Error
+retract v0.2.7
 
 go 1.21
 
