@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	ds "github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
-	log "github.com/ipfs/go-log/v2"
+	"github.com/ipfs/go-log/v2"
 	"github.com/jbenet/goprocess"
 )
 
@@ -31,24 +31,39 @@ type Datastore struct {
 var _ ds.Datastore = (*Datastore)(nil)
 var _ ds.Batching = (*Datastore)(nil)
 
+type DatastoreOption func(*Datastore)
+
+// WithPebbleDB is used to configure the Datastore with a custom DB.
+func WithPebbleDB(db *pebble.DB) DatastoreOption {
+	return func(ds *Datastore) {
+		ds.db = db
+	}
+}
+
 // NewDatastore creates a pebble-backed datastore.
 // Users can provide pebble options or rely on Pebble's defaults.
-func NewDatastore(path string, opts *pebble.Options) (*Datastore, error) {
+func NewDatastore(path string, opts *pebble.Options, options ...DatastoreOption) (*Datastore, error) {
 	if opts == nil {
 		opts = &pebble.Options{}
 		opts.EnsureDefaults()
 	}
 	opts.Logger = logger
 
-	db, err := pebble.Open(path, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open pebble database: %w", err)
-	}
-
 	store := &Datastore{
-		db:      db,
 		opts:    opts,
 		closing: make(chan struct{}),
+	}
+
+	for _, opt := range options {
+		opt(store)
+	}
+
+	if store.db == nil {
+		db, err := pebble.Open(path, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open pebble database: %w", err)
+		}
+		store.db = db
 	}
 
 	return store, nil
