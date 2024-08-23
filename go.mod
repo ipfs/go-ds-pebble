@@ -9,7 +9,7 @@ retract v0.2.7
 // web3-bot fuckup
 retract v0.3.0
 
-go 1.21
+go 1.22
 
 require (
 	github.com/cockroachdb/pebble v0.0.0-20231218155426-48b54c29d8fe
