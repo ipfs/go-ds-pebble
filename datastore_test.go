@@ -26,7 +26,7 @@ func newDatastore(t *testing.T) (*Datastore, func()) {
 		t.Fatal(err)
 	}
 
-	d, err := NewDatastore(path, nil)
+	d, err := NewDatastore(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func newDatastoreWithPebbleDB(t *testing.T) (*Datastore, func()) {
 		t.Fatal(err)
 	}
 
-	d, err := NewDatastore(path, nil, WithPebbleDB(db))
+	d, err := NewDatastore(path, WithPebbleDB(db))
 	if err != nil {
 		t.Fatal(err)
 	}

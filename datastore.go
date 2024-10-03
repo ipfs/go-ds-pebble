@@ -20,53 +20,53 @@ var logger = log.Logger("pebble")
 // It supports batching. It does not support TTL or transactions, because pebble
 // doesn't have those features.
 type Datastore struct {
-	db      *pebble.DB
-	status  int32
-	closing chan struct{}
-	wg      sync.WaitGroup
+	db *pebble.DB
 
-	opts *pebble.Options
+	cache      *pebble.Cache
+	closing    chan struct{}
+	disableWAL bool
+	status     int32
+	wg         sync.WaitGroup
 }
 
 var _ ds.Datastore = (*Datastore)(nil)
 var _ ds.Batching = (*Datastore)(nil)
 
-type DatastoreOption func(*Datastore)
-
-// WithPebbleDB is used to configure the Datastore with a custom DB.
-func WithPebbleDB(db *pebble.DB) DatastoreOption {
-	return func(ds *Datastore) {
-		ds.db = db
-	}
-}
-
 // NewDatastore creates a pebble-backed datastore.
-// Users can provide pebble options or rely on Pebble's defaults.
-func NewDatastore(path string, opts *pebble.Options, options ...DatastoreOption) (*Datastore, error) {
-	if opts == nil {
-		opts = &pebble.Options{}
-		opts.EnsureDefaults()
-	}
-	opts.Logger = logger
+//
+// Users can provide pebble options using WithPebbleOpts or rely on Pebble's
+// defaults. Any pebble options that are not assigned a value are assigned
+// pebble's default value for the option.
+func NewDatastore(path string, options ...Option) (*Datastore, error) {
+	opts := getOpts(options)
 
-	store := &Datastore{
-		opts:    opts,
-		closing: make(chan struct{}),
-	}
-
-	for _, opt := range options {
-		opt(store)
-	}
-
-	if store.db == nil {
-		db, err := pebble.Open(path, opts)
+	// Use the provided database or create a new one.
+	db := opts.db
+	var disableWAL bool
+	var cache *pebble.Cache
+	if db == nil {
+		pebbleOpts := opts.pebbleOpts.EnsureDefaults()
+		pebbleOpts.Logger = logger
+		disableWAL = pebbleOpts.DisableWAL
+		// Use the provided cache, create a custom-sized cache, or use default.
+		if pebbleOpts.Cache == nil && opts.cacheSize != 0 {
+			cache = pebble.NewCache(opts.cacheSize)
+			// Keep ref to cache if it is created here.
+			pebbleOpts.Cache = cache
+		}
+		var err error
+		db, err = pebble.Open(path, pebbleOpts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open pebble database: %w", err)
 		}
-		store.db = db
 	}
 
-	return store, nil
+	return &Datastore{
+		db:         db,
+		disableWAL: disableWAL,
+		cache:      cache,
+		closing:    make(chan struct{}),
+	}, nil
 }
 
 // get performs a get on the database, copying the value to a new slice and
@@ -337,7 +337,7 @@ func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 	// crash. In pebble this is done by fsyncing the WAL, which can be requested when
 	// performing write operations. But there is no separate operation to fsync
 	// only. The closest is LogData, which actually writes a log entry on the WAL.
-	if d.opts.DisableWAL { // otherwise this errors
+	if d.disableWAL { // otherwise this errors
 		return nil
 	}
 	err := d.db.LogData(nil, pebble.Sync)
@@ -356,6 +356,9 @@ func (d *Datastore) Close() error {
 		// already closed, or closing.
 		d.wg.Wait()
 		return nil
+	}
+	if d.cache != nil {
+		defer d.cache.Unref()
 	}
 	close(d.closing)
 	d.wg.Wait()
