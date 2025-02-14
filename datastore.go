@@ -59,6 +59,9 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to open pebble database: %w", err)
 		}
+		if err = db.RatchetFormatMajorVersion(pebble.FormatNewest); err != nil {
+			return nil, fmt.Errorf("failed to update pebble database format: %w", err)
+		}
 	}
 
 	return &Datastore{
