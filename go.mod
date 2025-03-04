@@ -13,7 +13,7 @@ go 1.23
 
 require (
 	github.com/cockroachdb/pebble v1.1.4
-	github.com/ipfs/go-datastore v0.8.1
+	github.com/ipfs/go-datastore v0.8.2
 	github.com/ipfs/go-log/v2 v2.5.1
 )
 
