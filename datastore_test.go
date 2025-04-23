@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/ipfs/go-datastore"
 	dstest "github.com/ipfs/go-datastore/test"
 )
