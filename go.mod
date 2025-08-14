@@ -13,8 +13,8 @@ go 1.23.10
 
 require (
 	github.com/cockroachdb/pebble/v2 v2.0.6
-	github.com/ipfs/go-datastore v0.8.2
-	github.com/ipfs/go-log/v2 v2.6.0
+	github.com/ipfs/go-datastore v0.8.3
+	github.com/ipfs/go-log/v2 v2.8.1
 )
 
 require (
@@ -48,7 +48,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
