@@ -8,15 +8,6 @@
 
 > A datastore implementation using [cockroachdb/pebble](https://github.com/cockroachdb/pebble) (a native-Go RocksDB equivalent) as a backend.
 
-This is a simple adapter to plug in [cockroachdb/pebble](https://github.com/cockroachdb/pebble) as a backend
-anywhere that accepts a [go-datastore](https://github.com/ipfs/go-datastore).
-
-Amongst other software, this includes:
-
-* [kubo](https://github.com/ipfs/kubo/)
-* [go-libp2p](https://github.com/libp2p/go-libp2p/)
-* [Lotus](https://github.com/filecoin-project/lotus), the reference Filecoin implementation written in Go.
-
 ## Table of Contents
 
 - [Install](#install)
