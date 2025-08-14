@@ -3,10 +3,9 @@
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://protocol.ai)
 [![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](http://ipfs.io/)
 [![](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23ipfs)
-[![GoDoc](https://godoc.org/github.com/ipfs/go-ds-pebble?status.svg)](https://godoc.org/github.com/ipfs/go-ds-pebble)
-[![Build Status](https://travis-ci.org/ipfs/go-ds-pebble.svg?branch=master)](https://travis-ci.org/ipfs/go-ds-pebble)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ipfs/go-ds-pebble/go-test.yml?branch=master)](https://github.com/ipfs/go-ds-pebble/actions)
+[![GoDoc](https://pkg.go.dev/badge/github.com/ipfs/go-ds-pebble)](https://pkg.go.dev/github.com/ipfs/go-ds-pebble)
 
-> 🐣 Status: experimental
 > A datastore implementation using [cockroachdb/pebble](https://github.com/cockroachdb/pebble) (a native-Go RocksDB equivalent) as a backend.
 
 This is a simple adapter to plug in [cockroachdb/pebble](https://github.com/cockroachdb/pebble) as a backend
@@ -14,21 +13,28 @@ anywhere that accepts a [go-datastore](https://github.com/ipfs/go-datastore).
 
 Amongst other software, this includes:
 
-* [go-ipfs](https://github.com/ipfs/go-ipfs/)
+* [kubo](https://github.com/ipfs/kubo/)
 * [go-libp2p](https://github.com/libp2p/go-libp2p/)
 * [Lotus](https://github.com/filecoin-project/lotus), the reference Filecoin implementation written in Go.
 
-## Status
+## Table of Contents
 
-This implementation is experimental. It is currently exercised against the test
-suite under [go-datastore](https://github.com/ipfs/go-datastore).
+- [Install](#install)
+- [Documentation](#documentation)
+- [Contribute](#contribute)
+- [License](#license)
 
-The road to maturity includes:
- 
- * Benchmarks against go-ds-badger, go-ds-badger2, and go-ds-leveldb.
- * Exposing metrics.
- * Testing it in IPFS, libp2p, and Lotus, and characterising its behaviour,
-   performance and footprint under real, practical workloads.
+## Install
+
+`go-ds-pebble` can be used like any Go module:
+
+```
+import "github.com/ipfs/go-ds-pebble"
+```
+
+## Documentation
+
+[GoDoc module documentation](https://pkg.go.dev/github.com/ipfs/go-ds-pebble)
 
 ## Contribute
 
