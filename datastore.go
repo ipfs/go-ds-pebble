@@ -44,7 +44,11 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 	var disableWAL bool
 	var cache *pebble.Cache
 	if db == nil {
-		pebbleOpts := opts.pebbleOpts.EnsureDefaults()
+		pebbleOpts := opts.pebbleOpts
+		if pebbleOpts == nil {
+			pebbleOpts = &pebble.Options{}
+		}
+
 		pebbleOpts.Logger = logger
 		disableWAL = pebbleOpts.DisableWAL
 		// Use the provided cache, create a custom-sized cache, or use default.
@@ -53,6 +57,8 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 			// Keep ref to cache if it is created here.
 			pebbleOpts.Cache = cache
 		}
+		pebbleOpts.EnsureDefaults()
+
 		var err error
 		db, err = pebble.Open(path, pebbleOpts)
 		if err != nil {
