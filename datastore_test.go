@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base32"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"testing"
 
@@ -126,11 +126,13 @@ func TestBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var seed [32]byte
+	cc8 := rand.NewChaCha8(seed)
 	var blocks [][]byte
 	var keys []datastore.Key
 	for i := 0; i < 20; i++ {
 		blk := make([]byte, 256*1024)
-		rand.Read(blk)
+		cc8.Read(blk)
 		blocks = append(blocks, blk)
 
 		key := datastore.NewKey(base32.StdEncoding.EncodeToString(blk[:8]))
@@ -164,7 +166,7 @@ func TestBatch(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		blk := make([]byte, 256*1024)
-		rand.Read(blk)
+		cc8.Read(blk)
 		blocks = append(blocks, blk)
 
 		key := datastore.NewKey(base32.StdEncoding.EncodeToString(blk[:8]))
