@@ -3,6 +3,8 @@ package pebbleds
 import (
 	"bytes"
 	"context"
+	"encoding/base32"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -109,4 +111,85 @@ func testDatastore(t *testing.T, ds *Datastore) {
 	if !bytes.Equal(v, val) {
 		t.Error("not equal", string(val))
 	}
+}
+
+func TestBatch(t *testing.T) {
+	var ds datastore.Batching
+	dstore, cleanup := newDatastore(t)
+	defer cleanup()
+	ds = dstore
+
+	ctx := context.Background()
+
+	batch, err := ds.Batch(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var blocks [][]byte
+	var keys []datastore.Key
+	for i := 0; i < 20; i++ {
+		blk := make([]byte, 256*1024)
+		rand.Read(blk)
+		blocks = append(blocks, blk)
+
+		key := datastore.NewKey(base32.StdEncoding.EncodeToString(blk[:8]))
+		keys = append(keys, key)
+
+		err := batch.Put(ctx, key, blk)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Ensure they are not in the datastore before committing
+	for _, k := range keys {
+		_, err := ds.Get(ctx, k)
+		if err == nil {
+			t.Fatal("should not have found this block")
+		}
+	}
+
+	// commit, write them to the datastore
+	err = batch.Commit(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// second commit should do nothing, but should not cause an error
+	err = batch.Commit(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 20; i++ {
+		blk := make([]byte, 256*1024)
+		rand.Read(blk)
+		blocks = append(blocks, blk)
+
+		key := datastore.NewKey(base32.StdEncoding.EncodeToString(blk[:8]))
+		keys = append(keys, key)
+
+		err := batch.Put(ctx, key, blk)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err = batch.Commit(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, k := range keys {
+		blk, err := ds.Get(ctx, k)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(blk, blocks[i]) {
+			t.Fatal("blocks not correct!")
+		}
+	}
+
 }
