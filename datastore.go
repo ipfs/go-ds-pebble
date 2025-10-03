@@ -425,5 +425,6 @@ func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
 }
 
 func (b *Batch) Commit(ctx context.Context) error {
+	defer b.batch.Reset() // make batch reusable
 	return b.batch.Commit(pebble.NoSync)
 }
