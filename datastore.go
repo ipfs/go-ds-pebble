@@ -21,11 +21,12 @@ var logger = log.Logger("pebble")
 type Datastore struct {
 	db *pebble.DB
 
-	cache      *pebble.Cache
-	closing    chan struct{}
-	disableWAL bool
-	status     int32
-	wg         sync.WaitGroup
+	cache        *pebble.Cache
+	closing      chan struct{}
+	disableWAL   bool
+	status       int32
+	writeOptions *pebble.WriteOptions
+	wg           sync.WaitGroup
 }
 
 var _ ds.Datastore = (*Datastore)(nil)
@@ -66,11 +67,16 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 		}
 	}
 
+	if opts.pebbleWriteOptions == nil {
+		opts.pebbleWriteOptions = pebble.NoSync
+	}
+
 	return &Datastore{
-		db:         db,
-		disableWAL: disableWAL,
-		cache:      cache,
-		closing:    make(chan struct{}),
+		db:           db,
+		disableWAL:   disableWAL,
+		cache:        cache,
+		writeOptions: opts.pebbleWriteOptions,
+		closing:      make(chan struct{}),
 	}, nil
 }
 
@@ -310,7 +316,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 }
 
 func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	err := d.db.Set(key.Bytes(), value, pebble.NoSync)
+	err := d.db.Set(key.Bytes(), value, d.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during set: %w", err)
 	}
@@ -327,7 +333,7 @@ func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
 }
 
 func (d *Datastore) Delete(ctx context.Context, key ds.Key) error {
-	err := d.db.Delete(key.Bytes(), pebble.NoSync)
+	err := d.db.Delete(key.Bytes(), d.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete: %w", err)
 	}
@@ -352,7 +358,10 @@ func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 }
 
 func (d *Datastore) Batch(ctx context.Context) (ds.Batch, error) {
-	return &Batch{d.db.NewBatch()}, nil
+	return &Batch{
+		batch:        d.db.NewBatch(),
+		writeOptions: d.writeOptions,
+	}, nil
 }
 
 func (d *Datastore) Close() error {
@@ -403,13 +412,14 @@ func (d *Datastore) inefficientOrderQuery(ctx context.Context, q query.Query, ba
 }
 
 type Batch struct {
-	batch *pebble.Batch
+	batch        *pebble.Batch
+	writeOptions *pebble.WriteOptions
 }
 
 var _ ds.Batch = (*Batch)(nil)
 
 func (b *Batch) Put(ctx context.Context, key ds.Key, value []byte) error {
-	err := b.batch.Set(key.Bytes(), value, pebble.NoSync)
+	err := b.batch.Set(key.Bytes(), value, b.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during set within batch: %w", err)
 	}
@@ -417,7 +427,7 @@ func (b *Batch) Put(ctx context.Context, key ds.Key, value []byte) error {
 }
 
 func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
-	err := b.batch.Delete(key.Bytes(), pebble.NoSync)
+	err := b.batch.Delete(key.Bytes(), b.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete within batch: %w", err)
 	}
@@ -426,5 +436,5 @@ func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
 
 func (b *Batch) Commit(ctx context.Context) error {
 	defer b.batch.Reset() // make batch reusable
-	return b.batch.Commit(pebble.NoSync)
+	return b.batch.Commit(b.writeOptions)
 }

@@ -193,5 +193,4 @@ func TestBatch(t *testing.T) {
 			t.Fatal("blocks not correct!")
 		}
 	}
-
 }
