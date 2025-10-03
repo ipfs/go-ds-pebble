@@ -67,15 +67,16 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 		}
 	}
 
-	if opts.pebbleWriteOptions == nil {
-		opts.pebbleWriteOptions = pebble.NoSync
+	writeOptions := pebble.NoSync
+	if opts.pebbleWriteOptions != nil {
+		writeOptions = opts.pebbleWriteOptions
 	}
 
 	return &Datastore{
 		db:           db,
 		disableWAL:   disableWAL,
 		cache:        cache,
-		writeOptions: opts.pebbleWriteOptions,
+		writeOptions: writeOptions,
 		closing:      make(chan struct{}),
 	}, nil
 }
