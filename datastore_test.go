@@ -20,7 +20,7 @@ func TestPebbleDatastore(t *testing.T) {
 	dstest.SubtestAll(t, ds)
 }
 
-func newDatastore(t *testing.T) (*Datastore, func()) {
+func newDatastore(t *testing.T, options ...Option) (*Datastore, func()) {
 	t.Helper()
 
 	path, err := os.MkdirTemp(os.TempDir(), "testing_pebble_")
@@ -28,7 +28,7 @@ func newDatastore(t *testing.T) (*Datastore, func()) {
 		t.Fatal(err)
 	}
 
-	d, err := NewDatastore(path)
+	d, err := NewDatastore(path, options...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,5 +193,42 @@ func TestBatch(t *testing.T) {
 			t.Fatal("blocks not correct!")
 		}
 	}
+}
 
+func TestPebbleWriteOptions(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		dstore, cleanup := newDatastore(t)
+		defer cleanup()
+
+		if dstore.writeOptions != pebble.NoSync {
+			t.Fatalf("incorrect write options: expected %v, got %v", pebble.NoSync, dstore.writeOptions)
+		}
+
+		batch, err := dstore.Batch(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if batch.(*Batch).writeOptions != pebble.NoSync {
+			t.Fatalf("incorrect batch write options: expected %v, got %v", pebble.NoSync, batch.(*Batch).writeOptions)
+		}
+	})
+
+	t.Run("pebble.Sync", func(t *testing.T) {
+		dstore, cleanup := newDatastore(t, WithPebbleWriteOptions(pebble.Sync))
+		defer cleanup()
+
+		if dstore.writeOptions != pebble.Sync {
+			t.Fatalf("incorrect write options: expected %v, got %v", pebble.Sync, dstore.writeOptions)
+		}
+
+		batch, err := dstore.Batch(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if batch.(*Batch).writeOptions != pebble.Sync {
+			t.Fatalf("incorrect batch write options: expected %v, got %v", pebble.Sync, batch.(*Batch).writeOptions)
+		}
+	})
 }
