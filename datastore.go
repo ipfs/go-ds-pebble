@@ -2,6 +2,7 @@ package pebbleds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -419,7 +420,12 @@ type Batch struct {
 
 var _ ds.Batch = (*Batch)(nil)
 
+var ErrBatchCommitted = errors.New("batch already committed and cannot be reused")
+
 func (b *Batch) Put(ctx context.Context, key ds.Key, value []byte) error {
+	if b.batch == nil {
+		return ErrBatchCommitted
+	}
 	err := b.batch.Set(key.Bytes(), value, b.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during set within batch: %w", err)
@@ -428,6 +434,9 @@ func (b *Batch) Put(ctx context.Context, key ds.Key, value []byte) error {
 }
 
 func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
+	if b.batch == nil {
+		return ErrBatchCommitted
+	}
 	err := b.batch.Delete(key.Bytes(), b.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete within batch: %w", err)
@@ -436,6 +445,14 @@ func (b *Batch) Delete(ctx context.Context, key ds.Key) error {
 }
 
 func (b *Batch) Commit(ctx context.Context) error {
-	defer b.batch.Reset() // make batch reusable
-	return b.batch.Commit(b.writeOptions)
+	if b.batch == nil {
+		return ErrBatchCommitted
+	}
+	if err := b.batch.Commit(b.writeOptions); err != nil {
+		return err
+	}
+	// Recycle batch resources, when safe, for use in a new batch.
+	b.batch.Close()
+	b.batch = nil
+	return nil
 }

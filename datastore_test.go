@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base32"
+	"errors"
 	"math/rand/v2"
 	"os"
 	"testing"
@@ -158,8 +159,13 @@ func TestBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// second commit should do nothing, but should not cause an error
+	// second commit should return a ErrBatchCommitted error.
 	err = batch.Commit(ctx)
+	if !errors.Is(err, ErrBatchCommitted) {
+		t.Fatalf("expected error: %s, got %v", ErrBatchCommitted, err)
+	}
+
+	batch, err = ds.Batch(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
