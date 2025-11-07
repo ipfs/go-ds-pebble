@@ -50,8 +50,9 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 		if pebbleOpts == nil {
 			pebbleOpts = &pebble.Options{}
 		}
-
-		pebbleOpts.Logger = logger
+		if pebbleOpts.Logger == nil {
+			pebbleOpts.Logger = logger
+		}
 		disableWAL = pebbleOpts.DisableWAL
 		// Use the provided cache, create a custom-sized cache, or use default.
 		if pebbleOpts.Cache == nil && opts.cacheSize != 0 {
