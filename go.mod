@@ -12,9 +12,9 @@ retract v0.3.0
 go 1.24
 
 require (
-	github.com/cockroachdb/pebble/v2 v2.1.1
+	github.com/cockroachdb/pebble/v2 v2.1.2
 	github.com/ipfs/go-datastore v0.9.0
-	github.com/ipfs/go-log/v2 v2.8.2
+	github.com/ipfs/go-log/v2 v2.9.0
 )
 
 require (
