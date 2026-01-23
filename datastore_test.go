@@ -131,7 +131,7 @@ func TestBatch(t *testing.T) {
 	cc8 := rand.NewChaCha8(seed)
 	var blocks [][]byte
 	var keys []datastore.Key
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		blk := make([]byte, 256*1024)
 		cc8.Read(blk)
 		blocks = append(blocks, blk)
@@ -170,7 +170,7 @@ func TestBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		blk := make([]byte, 256*1024)
 		cc8.Read(blk)
 		blocks = append(blocks, blk)
