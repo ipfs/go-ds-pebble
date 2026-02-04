@@ -6,7 +6,6 @@ import (
 	"encoding/base32"
 	"errors"
 	"math/rand/v2"
-	"os"
 	"testing"
 
 	"github.com/cockroachdb/pebble/v2"
@@ -15,38 +14,32 @@ import (
 )
 
 func TestPebbleDatastore(t *testing.T) {
-	ds, cleanup := newDatastore(t)
-	defer cleanup()
+	ds := newDatastore(t)
 
 	dstest.SubtestAll(t, ds)
 }
 
-func newDatastore(t *testing.T, options ...Option) (*Datastore, func()) {
+func newDatastore(t *testing.T, options ...Option) *Datastore {
 	t.Helper()
 
-	path, err := os.MkdirTemp(os.TempDir(), "testing_pebble_")
-	if err != nil {
-		t.Fatal(err)
-	}
+	path := t.TempDir()
 
 	d, err := NewDatastore(path, options...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return d, func() {
+	t.Cleanup(func() {
 		_ = d.Close()
-		_ = os.RemoveAll(path)
-	}
+	})
+
+	return d
 }
 
-func newDatastoreWithPebbleDB(t *testing.T) (*Datastore, func()) {
+func newDatastoreWithPebbleDB(t *testing.T) *Datastore {
 	t.Helper()
 
-	path, err := os.MkdirTemp(os.TempDir(), "testing_pebble_with_db")
-	if err != nil {
-		t.Fatal(err)
-	}
+	path := t.TempDir()
 
 	db, err := pebble.Open(path, nil)
 	if err != nil {
@@ -55,25 +48,25 @@ func newDatastoreWithPebbleDB(t *testing.T) (*Datastore, func()) {
 
 	d, err := NewDatastore(path, WithPebbleDB(db))
 	if err != nil {
+		_ = db.Close()
 		t.Fatal(err)
 	}
 
-	return d, func() {
+	t.Cleanup(func() {
 		_ = d.Close()
-		_ = os.RemoveAll(path)
-	}
+	})
+
+	return d
 }
 
 func TestGet(t *testing.T) {
-	ds, cleanup := newDatastore(t)
-	defer cleanup()
+	ds := newDatastore(t)
 
 	testDatastore(t, ds)
 }
 
 func TestGetWithPebbleDB(t *testing.T) {
-	ds, cleanup := newDatastoreWithPebbleDB(t)
-	defer cleanup()
+	ds := newDatastoreWithPebbleDB(t)
 
 	testDatastore(t, ds)
 }
@@ -115,9 +108,9 @@ func testDatastore(t *testing.T, ds *Datastore) {
 }
 
 func TestBatch(t *testing.T) {
+	dstore := newDatastore(t)
+
 	var ds datastore.Batching
-	dstore, cleanup := newDatastore(t)
-	defer cleanup()
 	ds = dstore
 
 	ctx := context.Background()
@@ -203,8 +196,7 @@ func TestBatch(t *testing.T) {
 
 func TestPebbleWriteOptions(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
-		dstore, cleanup := newDatastore(t)
-		defer cleanup()
+		dstore := newDatastore(t)
 
 		if dstore.writeOptions != pebble.NoSync {
 			t.Fatalf("incorrect write options: expected %v, got %v", pebble.NoSync, dstore.writeOptions)
@@ -221,8 +213,7 @@ func TestPebbleWriteOptions(t *testing.T) {
 	})
 
 	t.Run("pebble.Sync", func(t *testing.T) {
-		dstore, cleanup := newDatastore(t, WithPebbleWriteOptions(pebble.Sync))
-		defer cleanup()
+		dstore := newDatastore(t, WithPebbleWriteOptions(pebble.Sync))
 
 		if dstore.writeOptions != pebble.Sync {
 			t.Fatalf("incorrect write options: expected %v, got %v", pebble.Sync, dstore.writeOptions)
