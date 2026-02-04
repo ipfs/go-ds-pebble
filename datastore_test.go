@@ -108,10 +108,7 @@ func testDatastore(t *testing.T, ds *Datastore) {
 }
 
 func TestBatch(t *testing.T) {
-	dstore := newDatastore(t)
-
-	var ds datastore.Batching
-	ds = dstore
+	ds := newDatastore(t)
 
 	ctx := context.Background()
 
@@ -132,7 +129,7 @@ func TestBatch(t *testing.T) {
 		key := datastore.NewKey(base32.StdEncoding.EncodeToString(blk[:8]))
 		keys = append(keys, key)
 
-		err := batch.Put(ctx, key, blk)
+		err = batch.Put(ctx, key, blk)
 		if err != nil {
 			t.Fatal(err)
 		}
