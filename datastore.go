@@ -313,6 +313,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 			err := iter.Error()
 			if err != nil {
 				sendOrInterrupt(query.Result{Error: err})
+				continue
 			}
 			entry, err := createEntry()
 			if err != nil {
