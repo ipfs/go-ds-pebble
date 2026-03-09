@@ -231,18 +231,31 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 	}
 	doFilter := len(filters) > 0
 
-	createEntry := func() query.Entry {
+	createEntry := func() (query.Entry, error) {
 		// iter.Key and iter.Value may change on the next call to iter.Next.
 		// string conversion takes a copy
 		entry := query.Entry{Key: string(iter.Key())}
+		var val []byte
 		if !keysOnly {
+			var err error
+			val, err = iter.ValueAndErr()
+			if err != nil {
+				return query.Entry{}, err
+			}
 			// take a copy.
-			entry.Value = bytes.Clone(iter.Value())
+			entry.Value = bytes.Clone(val)
 		}
 		if returnSizes {
-			entry.Size = len(iter.Value())
+			if val == nil {
+				var err error
+				val, err = iter.ValueAndErr()
+				if err != nil {
+					return query.Entry{}, err
+				}
+			}
+			entry.Size = len(val)
 		}
-		return entry
+		return entry, nil
 	}
 
 	d.wg.Add(1)
@@ -284,20 +297,30 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 			if err := iter.Error(); err != nil {
 				sendOrInterrupt(query.Result{Error: err})
 			}
-			if doFilter && !filterFn(createEntry()) {
-				// if we have a filter, and this entry doesn't match it,
-				// don't count it.
-				continue
+			if doFilter {
+				entry, err := createEntry()
+				if err == nil && !filterFn(entry) {
+					// if we have a filter, and this entry doesn't match it,
+					// don't count it.
+					continue
+				}
 			}
 			skipped++
 		}
 
 		// start sending results, capped at limit (if > 0)
 		for sent := 0; (limit <= 0 || sent < limit) && iter.Valid(); move() {
-			if err := iter.Error(); err != nil {
+			err := iter.Error()
+			if err != nil {
 				sendOrInterrupt(query.Result{Error: err})
+				continue
 			}
-			entry := createEntry()
+			entry, err := createEntry()
+			if err != nil {
+				sendOrInterrupt(query.Result{Error: err})
+				continue
+			}
+
 			if doFilter && !filterFn(entry) {
 				// if we have a filter, and this entry doesn't match it,
 				// do not sendOrInterrupt it.
