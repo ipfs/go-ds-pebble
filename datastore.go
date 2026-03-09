@@ -84,6 +84,11 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 	}, nil
 }
 
+// PebbleDB provides access to the underlying pebble database.
+func (d *Datastore) PebbleDB() *pebble.DB {
+	return d.db
+}
+
 // get performs a get on the database, copying the value to a new slice and
 // returning it if retval is true. If retval is false, no copy will be
 // performed, and the returned value will always be nil, whether or not the key
