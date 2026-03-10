@@ -21,7 +21,7 @@ var logger = log.Logger("pebble")
 // It supports batching. It does not support TTL or transactions, because pebble
 // doesn't have those features.
 type Datastore struct {
-	db *pebble.DB
+	DB *pebble.DB
 
 	cache        *pebble.Cache
 	closing      chan struct{}
@@ -76,17 +76,12 @@ func NewDatastore(path string, options ...Option) (*Datastore, error) {
 	}
 
 	return &Datastore{
-		db:           db,
+		DB:           db,
 		disableWAL:   disableWAL,
 		cache:        cache,
 		writeOptions: writeOptions,
 		closing:      make(chan struct{}),
 	}, nil
-}
-
-// PebbleDB provides access to the underlying pebble database.
-func (d *Datastore) PebbleDB() *pebble.DB {
-	return d.db
 }
 
 // get performs a get on the database, copying the value to a new slice and
@@ -95,7 +90,7 @@ func (d *Datastore) PebbleDB() *pebble.DB {
 // exists. If the key doesn't exist, ds.ErrNotFound will be returned. When no
 // error occurs, the size of the value is also returned.
 func (d *Datastore) get(key []byte, retval bool) ([]byte, int, error) {
-	val, closer, err := d.db.Get(key)
+	val, closer, err := d.DB.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return nil, 0, ds.ErrNotFound
@@ -182,7 +177,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 		}(),
 	}
 
-	iter, err := d.db.NewIter(opts)
+	iter, err := d.DB.NewIter(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +334,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 }
 
 func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	err := d.db.Set(key.Bytes(), value, d.writeOptions)
+	err := d.DB.Set(key.Bytes(), value, d.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during set: %w", err)
 	}
@@ -349,14 +344,14 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 // DiskUsage implements the PersistentDatastore interface and returns current
 // size on disk.
 func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
-	m := d.db.Metrics()
+	m := d.DB.Metrics()
 	// since we requested metrics, print them up on debug
 	logger.Debugf("\n\n%s\n\n", m)
 	return m.DiskSpaceUsage(), nil
 }
 
 func (d *Datastore) Delete(ctx context.Context, key ds.Key) error {
-	err := d.db.Delete(key.Bytes(), d.writeOptions)
+	err := d.DB.Delete(key.Bytes(), d.writeOptions)
 	if err != nil {
 		return fmt.Errorf("pebble error during delete: %w", err)
 	}
@@ -373,7 +368,7 @@ func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 	if d.disableWAL { // otherwise this errors
 		return nil
 	}
-	err := d.db.LogData(nil, pebble.Sync)
+	err := d.DB.LogData(nil, pebble.Sync)
 	if err != nil {
 		return fmt.Errorf("pebble error during sync: %w", err)
 	}
@@ -382,7 +377,7 @@ func (d *Datastore) Sync(ctx context.Context, _ ds.Key) error {
 
 func (d *Datastore) Batch(ctx context.Context) (ds.Batch, error) {
 	return &Batch{
-		batch:        d.db.NewBatch(),
+		batch:        d.DB.NewBatch(),
 		writeOptions: d.writeOptions,
 	}, nil
 }
@@ -398,8 +393,8 @@ func (d *Datastore) Close() error {
 	}
 	close(d.closing)
 	d.wg.Wait()
-	_ = d.db.Flush()
-	return d.db.Close()
+	_ = d.DB.Flush()
+	return d.DB.Close()
 }
 
 func (d *Datastore) inefficientOrderQuery(ctx context.Context, q query.Query, baseOrder query.Order) (query.Results, error) {
