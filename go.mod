@@ -12,9 +12,9 @@ retract v0.3.0
 go 1.25
 
 require (
-	github.com/cockroachdb/pebble/v2 v2.1.5
+	github.com/cockroachdb/pebble/v2 v2.1.6
 	github.com/ipfs/go-datastore v0.9.1
-	github.com/ipfs/go-log/v2 v2.9.1
+	github.com/ipfs/go-log/v2 v2.9.2
 )
 
 require (
@@ -38,7 +38,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/minio/minlz v1.0.1-0.20250507153514-87eb42fe8882 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -48,7 +48,7 @@ require (
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
+	go.uber.org/zap v1.28.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
