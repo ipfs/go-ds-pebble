@@ -26,7 +26,7 @@ type Datastore struct {
 	cache        *pebble.Cache
 	closing      chan struct{}
 	disableWAL   bool
-	status       int32
+	status       atomic.Int32
 	writeOptions *pebble.WriteOptions
 	wg           sync.WaitGroup
 }
@@ -383,7 +383,7 @@ func (d *Datastore) Batch(ctx context.Context) (ds.Batch, error) {
 }
 
 func (d *Datastore) Close() error {
-	if !atomic.CompareAndSwapInt32(&d.status, 0, 1) {
+	if !d.status.CompareAndSwap(0, 1) {
 		// already closed, or closing.
 		d.wg.Wait()
 		return nil
