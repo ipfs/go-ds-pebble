@@ -21,6 +21,7 @@ func TestQueryReadErrors(t *testing.T) {
 		q              query.Query
 		failFirst      bool
 		failAfterEntry bool
+		valueBlocks    bool
 		wantError      bool
 		wantEntries    int
 	}{
@@ -30,6 +31,9 @@ func TestQueryReadErrors(t *testing.T) {
 		{name: "offset", q: query.Query{Offset: 2}, failAfterEntry: true, wantError: true},
 		{name: "keys only", q: query.Query{KeysOnly: true}, failAfterEntry: true, wantError: true, wantEntries: 1},
 		{name: "value order", q: query.Query{Orders: []query.Order{query.OrderByValue{}}}, failAfterEntry: true, wantError: true, wantEntries: 1},
+		{name: "value read", valueBlocks: true, failAfterEntry: true, wantError: true, wantEntries: 1},
+		{name: "size read", q: query.Query{KeysOnly: true, ReturnsSizes: true}, valueBlocks: true, failAfterEntry: true, wantError: true, wantEntries: 1},
+		{name: "healthy value blocks", valueBlocks: true, wantEntries: 50},
 		{name: "limit reached", q: query.Query{Limit: 1}, failAfterEntry: true, wantEntries: 1},
 		{name: "healthy", wantEntries: 50},
 		{name: "empty prefix", q: query.Query{Prefix: "missing"}},
@@ -53,6 +57,18 @@ func TestQueryReadErrors(t *testing.T) {
 				DisableAutomaticCompactions: true,
 				DisableTableStats:           true,
 				Levels:                      [7]pebble.LevelOptions{{BlockSize: 128}},
+			}
+			if tc.valueBlocks {
+				// Keep keys in one data block, with later values in value blocks.
+				// The injected read error then occurs in ValueAndErr, not Next.
+				comparer := *pebble.DefaultComparer
+				comparer.Name = "test.fixed-prefix"
+				comparer.Split = func(key []byte) int {
+					return min(len(key), len("/key/"))
+				}
+				opts.Comparer = &comparer
+				opts.FormatMajorVersion = pebble.FormatNewest
+				opts.Levels[0].BlockSize = 1 << 20
 			}
 			path := t.TempDir()
 			d, err := NewDatastore(path, WithPebbleOpts(opts))

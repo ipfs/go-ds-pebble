@@ -322,7 +322,7 @@ func (d *Datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 			entry, err := createEntry()
 			if err != nil {
 				sendOrInterrupt(query.Result{Error: err})
-				continue
+				return
 			}
 
 			if doFilter && !filterFn(entry) {
